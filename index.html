@@ -2,73 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Santosh JT</title>
+  <title>Job Application Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --bg:#f6f7f9; --card:#fff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
-    * { box-sizing: border-box; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
-    body { margin:0; background:var(--bg); color:var(--text); }
+    :root {
+      --bg:#f6f7f9;
+      --bg-dark:#1f2937;
+      --text:#1f2937;
+      --text-dark:#f9fafb;
+      --bg-image:none; /* update later with url("yourimage.jpg") */
+    }
+    body {
+      margin:0;
+      background:var(--bg) var(--bg-image) no-repeat center center fixed;
+      background-size:cover;
+      color:var(--text);
+      font-family: system-ui, sans-serif;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark {
+      background:var(--bg-dark) var(--bg-image) no-repeat center center fixed;
+      background-size:cover;
+      color:var(--text-dark);
+    }
     .wrap { max-width:1100px; margin:0 auto; padding:24px; }
     .row { display:flex; gap:12px; flex-wrap:wrap; }
     .between { justify-content:space-between; align-items:center; }
     .title { font-size:22px; font-weight:700; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.04); }
+    .card { background:#fff; border:1px solid #ddd; border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.05); }
+    body.dark .card { background:#374151; border-color:#4b5563; }
     .pad { padding:16px; }
     .kpi { flex:1 1 180px; }
-    .kpi .label { font-size:12px; color:var(--muted); }
+    .kpi .label { font-size:12px; color:#6b7280; }
     .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
-    .kpi.applied { border-left:6px solid #facc15; }     /* yellow */
-    .kpi.interview { border-left:6px solid #3b82f6; }   /* blue */
-    .kpi.offer { border-left:6px solid #22c55e; }       /* green */
-    .kpi.rejected { border-left:6px solid #ef4444; }    /* red */
-    input,textarea,button,select { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
-    input,textarea,select { width:100%; }
-    textarea { min-height:70px; }
-    button { cursor:pointer; }
-    button.primary { background:#111827; color:#fff; border-color:#111827; }
-    button.ghost { background:#fff; }
+    .kpi.applied { border-left:6px solid #facc15; }
+    .kpi.interview { border-left:6px solid #3b82f6; }
+    .kpi.offer { border-left:6px solid #22c55e; }
+    .kpi.rejected { border-left:6px solid #ef4444; }
+    button.switch { position:fixed; top:16px; right:16px; background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px 12px; cursor:pointer; }
+    body.dark button.switch { background:#374151; color:#f9fafb; border-color:#555; }
     table { width:100%; border-collapse:collapse; }
-    th,td { padding:12px; border-top:1px solid var(--border); vertical-align:top; text-align:left; }
-    thead th { background:#f3f4f6; color:#374151; border-top:none; }
-    .small { font-size:12px; color:#6b7280; }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .flex-1 { flex:1; }
-    a.link { color:#2563eb; text-decoration:underline; }
-    .auth { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .error { color:#b91c1c; font-size:12px; }
-    .ok { color:#047857; font-size:12px; }
-    select.status { border-radius:999px; padding:4px 10px; font-size:12px; }
-    .wishlist { background:#f3f4f6; color:#374151; }
-    .applied { background:#fef9c3; color:#92400e; }
-    .interview { background:#dbeafe; color:#1e40af; }
-    .offer { background:#dcfce7; color:#166534; }
-    .rejected { background:#fee2e2; color:#991b1b; }
-    @media (max-width: 640px) {
-      table, thead, tbody, th, td, tr { display: block; }
-      thead { display: none; }
-      tr { margin-bottom: 12px; border:1px solid var(--border); border-radius:12px; padding:8px; background:#fff; }
-      td { border: none; padding: 6px 8px; }
-      td::before { content: attr(data-label); font-weight:600; display:block; margin-bottom:2px; }
-      button, select, input, textarea { font-size:16px; padding:12px; }
-    }
+    th,td { padding:12px; border-top:1px solid #ddd; text-align:left; }
+    thead th { background:#f3f4f6; }
+    body.dark thead th { background:#4b5563; color:#f9fafb; }
   </style>
 </head>
 <body>
+  <button class="switch" id="modeBtn">🌙 Dark</button>
   <div class="wrap">
     <div class="row between">
-      <div class="title"> Santosh Job Application Tracker</div>
-      <div class="actions">
-        <div class="auth" id="authBox">
-          <input id="email" class="small" type="email" placeholder="Email" />
-          <input id="password" class="small" type="password" placeholder="Password" />
-          <button id="loginBtn" class="ghost">Sign in</button>
-          <button id="signOutBtn" class="ghost" style="display:none">Sign out</button>
-          <span id="authMsg" class="small"></span>
-        </div>
-        <span id="userTag" class="small">Not signed in</span>
-        <button id="exportBtn" class="ghost">Export CSV</button>
-        <button id="clearAllBtn" class="ghost">Clear All</button>
-      </div>
+      <div class="title">Job Application Tracker</div>
+      <button id="signOutBtn">Sign out</button>
     </div>
 
     <!-- KPI Cards -->
@@ -80,67 +64,21 @@
       <div class="card kpi rejected"><div class="pad"><div class="label">Rejected</div><div id="kpi-rejected" class="value">0</div></div></div>
     </div>
 
-    <!-- Add Job -->
+    <!-- Table -->
     <div class="card" style="margin-top:16px">
       <div class="pad">
-        <div class="row">
-          <div class="flex-1"><input id="f-company" placeholder="Company" /></div>
-          <div class="flex-1"><input id="f-role" placeholder="Role / Title" /></div>
-          <div class="flex-1"><input id="f-link" placeholder="Link (optional)" /></div>
-          <div style="width:220px">
-            <select id="f-status">
-              <option>Applied</option>
-              <option>Wishlist</option>
-              <option>Interview</option>
-              <option>Offer</option>
-              <option>Rejected</option>
-            </select>
-          </div>
-          <button id="addBtn" class="primary">Add</button>
-        </div>
-        <div style="margin-top:10px"><textarea id="f-notes" placeholder="Notes (optional)"></textarea></div>
-      </div>
-    </div>
-
-    <!-- Search + Filter -->
-    <div class="row" style="margin-top:12px">
-      <div class="flex-1"><input id="search" placeholder="Search company, role, notes…" /></div>
-      <div style="width:220px">
-        <select id="statusFilter">
-          <option value="All">All statuses</option>
-          <option>Wishlist</option>
-          <option>Applied</option>
-          <option>Interview</option>
-          <option>Offer</option>
-          <option>Rejected</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Jobs Table -->
-    <div class="card" style="margin-top:12px">
-      <div class="pad" style="padding:0">
-        <div style="overflow-x:auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Status</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="tbody">
-              <tr><td colspan="7" class="small" style="text-align:center; padding:24px">Sign in to see your jobs.</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <table>
+          <thead><tr><th>Status</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="7">Loading...</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
@@ -156,67 +94,34 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-    await setPersistence(auth, browserLocalPersistence);
 
-    const kTotal=document.getElementById('kpi-total');
-    const kApplied=document.getElementById('kpi-applied');
-    const kInterview=document.getElementById('kpi-interview');
-    const kOffer=document.getElementById('kpi-offer');
-    const kRejected=document.getElementById('kpi-rejected');
-    const tbody=document.getElementById('tbody');
-    const search=document.getElementById('search');
-    const statusFilter=document.getElementById('statusFilter');
-    const emailEl=document.getElementById('email'),passEl=document.getElementById('password');
-    const loginBtn=document.getElementById('loginBtn'),signOutBtn=document.getElementById('signOutBtn'),authMsg=document.getElementById('authMsg');
-    const fCompany=document.getElementById('f-company'),fRole=document.getElementById('f-role'),fLink=document.getElementById('f-link'),fStatus=document.getElementById('f-status'),fNotes=document.getElementById('f-notes');
-    let jobs=[],uid=null,unsubscribe=null;
+    const signOutBtn=document.getElementById("signOutBtn");
+    const modeBtn=document.getElementById("modeBtn");
+    const tbody=document.getElementById("tbody");
 
-    function setAuthMsg(t,ok=false){authMsg.textContent=t||'';authMsg.className=ok?'small ok':'small error';}
-
-    loginBtn.addEventListener('click',async()=>{setAuthMsg('');const e=emailEl.value.trim(),p=passEl.value;if(!e||!p)return setAuthMsg('Enter email and password');try{await signInWithEmailAndPassword(auth,e,p);setAuthMsg('Signed in',true);}catch(err){setAuthMsg(err.message||'Login failed');}});
-    signOutBtn.addEventListener('click',async()=>{try{await signOut(auth);setAuthMsg('Signed out',true);}catch(err){setAuthMsg(err.message||'Sign out failed');}});
-
-    onAuthStateChanged(auth,u=>{
-      if(unsubscribe){unsubscribe();unsubscribe=null;}
-      if(!u){uid=null;jobs=[];render();return;}
-      uid=u.uid;
-      const jobsRef=ref(db,`users/${uid}/jobs`);
-      unsubscribe=onValue(jobsRef,snap=>{jobs=Object.values(snap.val()||{}).map(j=>({status:'Wishlist',...j})).sort((a,b)=>(b.date||"").localeCompare(a.date||""));render();});
+    // Redirect if not signed in
+    onAuthStateChanged(auth,(user)=>{
+      if(!user) { window.location.href="login.html"; return; }
+      const jobsRef=ref(db,`users/${user.uid}/jobs`);
+      onValue(jobsRef,snap=>{
+        const jobs=Object.values(snap.val()||{});
+        tbody.innerHTML="";
+        jobs.forEach(j=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML=`<td>${j.status}</td><td>${j.company}</td><td>${j.role}</td><td>${new Date(j.date).toLocaleDateString()}</td><td>${j.link||""}</td><td>${j.notes||""}</td><td><button>Delete</button></td>`;
+          tbody.appendChild(tr);
+        });
+      });
     });
 
-    function genId(){return Math.random().toString(36).slice(2,10);}
-    function filteredJobs(){const q=(search?.value||'').toLowerCase();const sf=statusFilter.value||'All';return jobs.filter(j=>{const m=(j.company+' '+j.role+' '+(j.notes||'')).toLowerCase().includes(q);const s=(sf==='All')?true:(j.status===sf);return m&&s;});}
-    function statusClass(s){return {Wishlist:'wishlist',Applied:'applied',Interview:'interview',Offer:'offer',Rejected:'rejected'}[s]||'wishlist';}
+    // Sign out
+    signOutBtn.addEventListener("click", async ()=>{ await signOut(auth); window.location.href="login.html"; });
 
-    function render(){
-      const total=jobs.length;
-      const appliedCount=jobs.filter(j=>j.status==='Applied').length;
-      const interviewCount=jobs.filter(j=>j.status==='Interview').length;
-      const offerCount=jobs.filter(j=>j.status==='Offer').length;
-      const rejectedCount=jobs.filter(j=>j.status==='Rejected').length;
-      kTotal.textContent=total;kApplied.textContent=appliedCount;kInterview.textContent=interviewCount;kOffer.textContent=offerCount;kRejected.textContent=rejectedCount;
-
-      const rows=filteredJobs();tbody.innerHTML='';
-      if(rows.length===0){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='small';td.style.textAlign='center';td.style.padding='24px';td.textContent=uid?'No jobs found.':'Sign in to see your jobs.';tr.appendChild(td);tbody.appendChild(tr);return;}
-      for(const j of rows){
-        const tr=document.createElement('tr');
-        const tdS=document.createElement('td');tdS.setAttribute('data-label','Status');const sel=document.createElement('select');sel.className=`status ${statusClass(j.status)}`;['Applied','Wishlist','Interview','Offer','Rejected'].forEach(s=>{const o=document.createElement('option');o.textContent=s;o.value=s;if(j.status===s)o.selected=true;sel.appendChild(o);});sel.addEventListener('change',()=>updateStatus(j.id,sel.value));tdS.appendChild(sel);tr.appendChild(tdS);
-        const tdC=document.createElement('td');tdC.setAttribute('data-label','Company');tdC.textContent=j.company;tdC.style.fontWeight='600';tr.appendChild(tdC);
-        const tdR=document.createElement('td');tdR.setAttribute('data-label','Role');tdR.textContent=j.role;tr.appendChild(tdR);
-        const tdD=document.createElement('td');tdD.setAttribute('data-label','Date');tdD.textContent=j.date?new Date(j.date).toLocaleDateString():'—';tr.appendChild(tdD);
-        const tdL=document.createElement('td');tdL.setAttribute('data-label','Link');if(j.link){const a=document.createElement('a');a.href=j.link;a.target='_blank';a.rel='noreferrer';a.textContent='Open';a.className='link';tdL.appendChild(a);}else tdL.textContent='—';tr.appendChild(tdL);
-        const tdN=document.createElement('td');tdN.setAttribute('data-label','Notes');tdN.textContent=j.notes||'—';tr.appendChild(tdN);
-        const tdAct=document.createElement('td');tdAct.setAttribute('data-label','Actions');const del=document.createElement('button');del.textContent='Delete';del.className='ghost';del.addEventListener('click',()=>removeJob(j.id));tdAct.appendChild(del);tr.appendChild(tdAct);
-        tbody.appendChild(tr);
-      }
-    }
-
-    document.getElementById('addBtn').addEventListener('click',async()=>{if(!uid)return;const c=fCompany.value.trim(),r=fRole.value.trim();if(!c||!r)return;const id=genId();const job={id,company:c,role:r,link:fLink.value.trim()||'',notes:fNotes.value.trim()||'',status:fStatus.value||'Wishlist',date:new Date().toISOString()};await set(ref(db,`users/${uid}/jobs/${id}`),job);fCompany.value='';fRole.value='';fLink.value='';fNotes.value='';fStatus.value='Wishlist';});
-    async function updateStatus(id,status){if(!uid)return;await update(ref(db,`users/${uid}/jobs/${id}`),{status});}
-    async function removeJob(id){if(!uid)return;if(!confirm('Delete this job?'))return;await remove(ref(db,`users/${uid}/jobs/${id}`));}
-    document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!uid||!jobs.length)return;if(!confirm(`Delete ALL ${jobs.length} jobs?`))return;await set(ref(db,`users/${uid}/jobs`),null);});
-    search.addEventListener('input',render);statusFilter.addEventListener('change',render);
-    document.getElementById('exportBtn').addEventListener('click',()=>{const header=['ID','Company','Role','Link','Status','Date','Notes'];const esc=v=>{v=v??'';return /[",\n]/.test(v)?'"'+String(v).replaceAll('"','""')+'"':String(v);};const lines=jobs.map(j=>[j.id,j.company,j.role,j.link||'',j.status||'Wishlist',j.date?new Date(j.date).toLocaleDateString():'',j.notes||''].map(esc).join(','));const csv=[header.join(','),...lines].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);});
+    // Dark/Light mode toggle
+    modeBtn.addEventListener("click",()=>{
+      document.body.classList.toggle("dark");
+      modeBtn.textContent=document.body.classList.contains("dark")?"☀️ Light":"🌙 Dark";
+    });
   </script>
 </body>
 </html>
