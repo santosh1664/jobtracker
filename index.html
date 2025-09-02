@@ -19,6 +19,7 @@
     .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
     input,textarea,button { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
     input,textarea { width:100%; }
+    input.small { width:200px; }
     textarea { min-height:70px; }
     button { cursor:pointer; }
     button.primary { background:#111827; color:#fff; border-color:#111827; }
@@ -28,9 +29,12 @@
     thead th { background:#f3f4f6; color:#374151; border-top:none; }
     .small { font-size:12px; color:#6b7280; }
     .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px dashed var(--border); border-radius:12px; }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .flex-1 { flex:1; }
     a.link { color:#2563eb; text-decoration:underline; }
+    .auth { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .error { color:#b91c1c; font-size:12px; }
+    .ok { color:#047857; font-size:12px; }
   </style>
 </head>
 <body>
@@ -38,7 +42,16 @@
     <div class="row between">
       <div class="title">Job Application Tracker</div>
       <div class="actions">
-        <span id="userTag" class="small">Connecting…</span>
+        <!-- Email/Password Auth UI -->
+        <div class="auth" id="authBox">
+          <input id="email" class="small" type="email" placeholder="Email" autocomplete="username" />
+          <input id="password" class="small" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="loginBtn" class="ghost">Sign in</button>
+          <button id="registerBtn" class="ghost">Register</button>
+          <button id="signOutBtn" class="ghost" style="display:none">Sign out</button>
+          <span id="authMsg" class="small"></span>
+        </div>
+        <span id="userTag" class="small">Not signed in</span>
         <button id="exportBtn" class="ghost">Export CSV</button>
         <button id="clearAllBtn" class="ghost">Clear All</button>
       </div>
@@ -78,19 +91,19 @@
               </tr>
             </thead>
             <tbody id="tbody">
-              <tr><td colspan="7" class="small" style="text-align:center; padding:24px">No jobs found.</td></tr>
+              <tr><td colspan="7" class="small" style="text-align:center; padding:24px">Sign in to see your jobs.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <div class="small" style="text-align:center; margin:24px 0 8px">Data is stored securely in your Firebase project (per-user).</div>
+    <div class="small" style="text-align:center; margin:24px 0 8px">Data is stored securely in your Firebase project (per-user account).</div>
   </div>
 
   <!-- Firebase SDK (v10 modular) -->
   <script type="module">
-    // ==== YOUR VERIFIED PROJECT (jobt-d9f5b) ====
+    // ==== Your Firebase project (jobt-d9f5b) ====
     const firebaseConfig = {
       apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
       authDomain: "jobt-d9f5b.firebaseapp.com",
@@ -103,12 +116,18 @@
     };
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
+
+    // Persist session across reloads
+    await setPersistence(auth, browserLocalPersistence);
 
     // UI refs
     const kTotal = document.getElementById('kpi-total');
@@ -119,6 +138,13 @@
     const toggleUnappliedBtn = document.getElementById('toggleUnappliedBtn');
     const userTag = document.getElementById('userTag');
 
+    const emailEl = document.getElementById('email');
+    const passEl = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const authMsg = document.getElementById('authMsg');
+
     const fCompany = document.getElementById('f-company');
     const fRole = document.getElementById('f-role');
     const fLink = document.getElementById('f-link');
@@ -128,33 +154,76 @@
     let jobs = [];
     let showOnlyUnapplied = false;
     let uid = null;
+    let unsubscribe = null;
 
-    // ---- Auth + bind listener ----
-    onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          await signInAnonymously(auth);
-          return;
-        }
-        uid = user.uid;
-        userTag.textContent = `Signed in • ${uid.slice(0,6)}…`;
+    function setAuthMsg(text, ok=false){
+      authMsg.textContent = text || '';
+      authMsg.className = ok ? 'small ok' : 'small error';
+    }
 
-        const jobsRef = ref(db, `users/${uid}/jobs`);
-        onValue(jobsRef, (snap) => {
-          jobs = Object.values(snap.val() || {}).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
-          render();
-        }, (err) => {
-          console.error('DB listener error:', err);
-          userTag.textContent = 'DB error — check rules/connection';
-        });
-      } catch (e) {
-        console.error('Auth error:', e);
-        userTag.textContent = 'Auth failed — enable Anonymous & add domain';
-        alert('Firebase auth failed. Ensure Anonymous sign-in is enabled and your domain is authorized.');
+    loginBtn.addEventListener('click', async ()=>{
+      setAuthMsg('');
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) return setAuthMsg('Enter email and password');
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+        setAuthMsg('Signed in', true);
+      }catch(e){
+        setAuthMsg(e.message || 'Login failed');
       }
     });
 
-    // ---- Helpers ----
+    registerBtn.addEventListener('click', async ()=>{
+      setAuthMsg('');
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) return setAuthMsg('Enter email and password');
+      try{
+        await createUserWithEmailAndPassword(auth, email, password);
+        setAuthMsg('Account created & signed in', true);
+      }catch(e){
+        setAuthMsg(e.message || 'Registration failed');
+      }
+    });
+
+    signOutBtn.addEventListener('click', async ()=>{
+      setAuthMsg('');
+      try{
+        await signOut(auth);
+        setAuthMsg('Signed out', true);
+      }catch(e){
+        setAuthMsg(e.message || 'Sign out failed');
+      }
+    });
+
+    onAuthStateChanged(auth, (user)=>{
+      // Clean old listener
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+
+      if (!user) {
+        uid = null;
+        userTag.textContent = 'Not signed in';
+        signOutBtn.style.display = 'none';
+        jobs = [];
+        render();
+        return;
+      }
+
+      uid = user.uid;
+      userTag.textContent = user.email ? `Signed in • ${user.email}` : `Signed in • ${uid.slice(0,6)}…`;
+      signOutBtn.style.display = 'inline-block';
+
+      const jobsRef = ref(db, `users/${uid}/jobs`);
+      unsubscribe = onValue(jobsRef, (snap)=>{
+        jobs = Object.values(snap.val() || {}).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+        render();
+      }, (err)=>{
+        setAuthMsg('DB error: ' + (err?.message || err));
+      });
+    });
+
+    // Helpers
     function genId(){ return Math.random().toString(36).slice(2,10); }
     function truthy(v){ return v===true || String(v).toLowerCase()==='true' || String(v).toLowerCase().startsWith('y'); }
 
@@ -178,7 +247,8 @@
       tbody.innerHTML = '';
       if(rows.length === 0){
         const tr = document.createElement('tr'); const td = document.createElement('td');
-        td.colSpan = 7; td.className = 'small'; td.style.textAlign='center'; td.style.padding='24px'; td.textContent = 'No jobs found.';
+        td.colSpan = 7; td.className = 'small'; td.style.textAlign='center'; td.style.padding='24px';
+        td.textContent = uid ? 'No jobs found.' : 'Sign in to see your jobs.';
         tr.appendChild(td); tbody.appendChild(tr); return;
       }
 
@@ -207,13 +277,12 @@
       }
     }
 
-    // ---- CRUD ----
+    // CRUD
     document.getElementById('addBtn').addEventListener('click', async ()=>{
-      if(!uid){ alert('Still connecting…'); return; }
+      if(!uid){ setAuthMsg('Please sign in first'); return; }
       const company = fCompany.value.trim();
       const role = fRole.value.trim();
       if(!company || !role) return;
-
       const id = genId();
       const job = {
         id, company, role,
@@ -225,27 +294,28 @@
       try{
         await set(ref(db, `users/${uid}/jobs/${id}`), job);
         fCompany.value=''; fRole.value=''; fLink.value=''; fNotes.value=''; fApplied.checked=false;
-      }catch(e){ console.error('Add failed:', e); alert('Write failed. Check DB rules are published.'); }
+      }catch(e){ setAuthMsg('Write failed: ' + (e?.message || e)); }
     });
 
     async function toggleApplied(id, applied){
       if(!uid) return;
       try{ await update(ref(db, `users/${uid}/jobs/${id}`), { applied }); }
-      catch(e){ console.error('Update failed:', e); alert('Update failed. Check DB rules.'); }
+      catch(e){ setAuthMsg('Update failed: ' + (e?.message || e)); }
     }
 
     async function removeJob(id){
       if(!uid) return;
       if(!confirm('Delete this job?')) return;
       try{ await remove(ref(db, `users/${uid}/jobs/${id}`)); }
-      catch(e){ console.error('Delete failed:', e); alert('Delete failed.'); }
+      catch(e){ setAuthMsg('Delete failed: ' + (e?.message || e)); }
     }
 
     // UI controls
     document.getElementById('clearAllBtn').addEventListener('click', async ()=>{
       if(!uid || !jobs.length) return;
       if(!confirm(`Delete ALL ${jobs.length} jobs? This cannot be undone.`)) return;
-      await set(ref(db, `users/${uid}/jobs`), null);
+      try{ await set(ref(db, `users/${uid}/jobs`), null); }
+      catch(e){ setAuthMsg('Clear failed: ' + (e?.message || e)); }
     });
 
     document.getElementById('toggleUnappliedBtn').addEventListener('click', ()=>{
@@ -255,25 +325,6 @@
     });
 
     search.addEventListener('input', render);
-
-    document.getElementById('exportBtn').addEventListener('click', ()=>{
-      const header = ['ID','Company','Role','Link','Applied','Date','Notes'];
-      const escapeCsv = v => {
-        v = v ?? '';
-        return /[",\n]/.test(v) ? '"' + String(v).replaceAll('"','""') + '"' : String(v);
-      };
-      const lines = jobs.map(j => [
-        j.id, j.company, j.role, j.link||'',
-        truthy(j.applied) ? 'Yes' : 'No',
-        j.date ? new Date(j.date).toLocaleDateString() : '',
-        j.notes || ''
-      ].map(escapeCsv).join(','));
-      const csv = [header.join(','), ...lines].join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-      URL.revokeObjectURL(url);
-    });
   </script>
 </body>
 </html>
