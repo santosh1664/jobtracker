@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Login - Job Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; background:#f6f7f9; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+    .card { background:#fff; padding:32px; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.1); width:320px; text-align:center; }
+    h2 { margin-top:0; }
+    input,button { width:100%; padding:12px; margin:8px 0; border:1px solid #ccc; border-radius:8px; font-size:14px; }
+    button { background:#111827; color:#fff; cursor:pointer; }
+    .error { color:#b91c1c; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Job Tracker Login</h2>
+    <input id="email" type="email" placeholder="Email" autocomplete="username" />
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Login</button>
+    <p id="msg" class="error"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
+      authDomain: "jobt-d9f5b.firebaseapp.com",
+      databaseURL: "https://jobt-d9f5b-default-rtdb.firebaseio.com",
+      projectId: "jobt-d9f5b",
+      storageBucket: "jobt-d9f5b.appspot.com",
+      messagingSenderId: "661162100470",
+      appId: "1:661162100470:web:d7d3880b0acd6ae58d8ed7",
+      measurementId: "G-B8N2Q5D0NN"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    await setPersistence(auth, browserLocalPersistence);
+
+    const email=document.getElementById("email");
+    const pass=document.getElementById("password");
+    const btn=document.getElementById("loginBtn");
+    const msg=document.getElementById("msg");
+
+    btn.addEventListener("click", async ()=>{
+      msg.textContent="";
+      try {
+        await signInWithEmailAndPassword(auth, email.value, pass.value);
+        window.location.href="index.html"; // redirect after login
+      } catch(err) {
+        msg.textContent = err.message;
+      }
+    });
+
+    // Skip login if already signed in
+    onAuthStateChanged(auth, (user)=>{
+      if(user) window.location.href="index.html";
+    });
+  </script>
+</body>
+</html>
