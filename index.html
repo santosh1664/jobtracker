@@ -17,8 +17,8 @@
     .kpi { flex:1 1 220px; }
     .kpi .label { font-size:12px; color:var(--muted); }
     .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
-    input,textarea,button { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
-    input,textarea { width:100%; }
+    input,textarea,button,select { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
+    input,textarea,select { width:100%; }
     input.small { width:200px; }
     textarea { min-height:70px; }
     button { cursor:pointer; }
@@ -28,13 +28,13 @@
     th,td { padding:12px; border-top:1px solid var(--border); vertical-align:top; text-align:left; }
     thead th { background:#f3f4f6; color:#374151; border-top:none; }
     .small { font-size:12px; color:#6b7280; }
-    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px dashed var(--border); border-radius:12px; }
     .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .flex-1 { flex:1; }
     a.link { color:#2563eb; text-decoration:underline; }
     .auth { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .error { color:#b91c1c; font-size:12px; }
     .ok { color:#047857; font-size:12px; }
+    .status-chip { border-radius:999px; padding:4px 10px; font-size:12px; border:1px solid var(--border); display:inline-block; }
   </style>
 </head>
 <body>
@@ -42,12 +42,11 @@
     <div class="row between">
       <div class="title">Job Application Tracker</div>
       <div class="actions">
-        <!-- Email/Password Auth UI -->
+        <!-- Email/Password Auth UI (Register hidden) -->
         <div class="auth" id="authBox">
           <input id="email" class="small" type="email" placeholder="Email" autocomplete="username" />
           <input id="password" class="small" type="password" placeholder="Password" autocomplete="current-password" />
           <button id="loginBtn" class="ghost">Sign in</button>
-          <button id="registerBtn" class="ghost">Register</button>
           <button id="signOutBtn" class="ghost" style="display:none">Sign out</button>
           <span id="authMsg" class="small"></span>
         </div>
@@ -69,7 +68,15 @@
           <div class="flex-1"><input id="f-company" placeholder="Company" /></div>
           <div class="flex-1"><input id="f-role" placeholder="Role / Title" /></div>
           <div class="flex-1"><input id="f-link" placeholder="Link (optional)" /></div>
-          <label class="pill"><input id="f-applied" type="checkbox" /> Applied</label>
+          <div style="width:220px">
+            <select id="f-status" aria-label="Status">
+              <option>Wishlist</option>
+              <option>Applied</option>
+              <option>Interview</option>
+              <option>Offer</option>
+              <option>Rejected</option>
+            </select>
+          </div>
           <button id="addBtn" class="primary">Add</button>
         </div>
         <div style="margin-top:10px"><textarea id="f-notes" placeholder="Notes (optional)"></textarea></div>
@@ -78,7 +85,16 @@
 
     <div class="row" style="margin-top:12px">
       <div class="flex-1"><input id="search" placeholder="Search company, role, notes…" /></div>
-      <button id="toggleUnappliedBtn" class="ghost">Only Not Applied</button>
+      <div style="width:220px">
+        <select id="statusFilter" aria-label="Filter by status">
+          <option value="All">All statuses</option>
+          <option>Wishlist</option>
+          <option>Applied</option>
+          <option>Interview</option>
+          <option>Offer</option>
+          <option>Rejected</option>
+        </select>
+      </div>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -87,7 +103,7 @@
           <table>
             <thead>
               <tr>
-                <th>Applied</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th>
+                <th>Status</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="tbody">
@@ -118,15 +134,13 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
       getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
-      signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+      signInWithEmailAndPassword, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-
-    // Persist session across reloads
     await setPersistence(auth, browserLocalPersistence);
 
     // UI refs
@@ -135,24 +149,22 @@
     const kUnapplied = document.getElementById('kpi-unapplied');
     const tbody = document.getElementById('tbody');
     const search = document.getElementById('search');
-    const toggleUnappliedBtn = document.getElementById('toggleUnappliedBtn');
+    const statusFilter = document.getElementById('statusFilter');
     const userTag = document.getElementById('userTag');
 
     const emailEl = document.getElementById('email');
     const passEl = document.getElementById('password');
     const loginBtn = document.getElementById('loginBtn');
-    const registerBtn = document.getElementById('registerBtn');
     const signOutBtn = document.getElementById('signOutBtn');
     const authMsg = document.getElementById('authMsg');
 
     const fCompany = document.getElementById('f-company');
     const fRole = document.getElementById('f-role');
     const fLink = document.getElementById('f-link');
-    const fApplied = document.getElementById('f-applied');
+    const fStatus = document.getElementById('f-status');
     const fNotes = document.getElementById('f-notes');
 
     let jobs = [];
-    let showOnlyUnapplied = false;
     let uid = null;
     let unsubscribe = null;
 
@@ -174,19 +186,6 @@
       }
     });
 
-    registerBtn.addEventListener('click', async ()=>{
-      setAuthMsg('');
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return setAuthMsg('Enter email and password');
-      try{
-        await createUserWithEmailAndPassword(auth, email, password);
-        setAuthMsg('Account created & signed in', true);
-      }catch(e){
-        setAuthMsg(e.message || 'Registration failed');
-      }
-    });
-
     signOutBtn.addEventListener('click', async ()=>{
       setAuthMsg('');
       try{
@@ -198,15 +197,13 @@
     });
 
     onAuthStateChanged(auth, (user)=>{
-      // Clean old listener
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
 
       if (!user) {
         uid = null;
         userTag.textContent = 'Not signed in';
         signOutBtn.style.display = 'none';
-        jobs = [];
-        render();
+        jobs = []; render();
         return;
       }
 
@@ -216,29 +213,28 @@
 
       const jobsRef = ref(db, `users/${uid}/jobs`);
       unsubscribe = onValue(jobsRef, (snap)=>{
-        jobs = Object.values(snap.val() || {}).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+        // Default any legacy job without status to 'Wishlist'
+        jobs = Object.values(snap.val() || {}).map(j => ({ status: 'Wishlist', ...j }))
+               .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
         render();
-      }, (err)=>{
-        setAuthMsg('DB error: ' + (err?.message || err));
-      });
+      }, (err)=> setAuthMsg('DB error: ' + (err?.message || err)));
     });
 
     // Helpers
     function genId(){ return Math.random().toString(36).slice(2,10); }
-    function truthy(v){ return v===true || String(v).toLowerCase()==='true' || String(v).toLowerCase().startsWith('y'); }
-
     function filteredJobs(){
       const q = (search?.value || '').toLowerCase();
+      const sf = statusFilter.value || 'All';
       return jobs.filter(j => {
         const match = (j.company + ' ' + j.role + ' ' + (j.notes||'')).toLowerCase().includes(q);
-        const pass = showOnlyUnapplied ? !truthy(j.applied) : true;
-        return match && pass;
+        const byStatus = (sf === 'All') ? true : (j.status === sf);
+        return match && byStatus;
       });
     }
 
     function render(){
       const total = jobs.length;
-      const appliedCount = jobs.filter(j => truthy(j.applied)).length;
+      const appliedCount = jobs.filter(j => j.status === 'Applied').length;
       kTotal.textContent = total;
       kApplied.textContent = appliedCount;
       kUnapplied.textContent = total - appliedCount;
@@ -255,20 +251,35 @@
       for(const j of rows){
         const tr = document.createElement('tr');
 
-        const tdA = document.createElement('td');
-        const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = truthy(j.applied);
-        cb.addEventListener('change', ()=> toggleApplied(j.id, cb.checked)); tdA.appendChild(cb); tr.appendChild(tdA);
+        // STATUS (inline editable)
+        const tdS = document.createElement('td');
+        const sel = document.createElement('select');
+        ['Wishlist','Applied','Interview','Offer','Rejected'].forEach(s=>{
+          const o = document.createElement('option'); o.textContent = s; o.value = s;
+          if (j.status === s) o.selected = true;
+          sel.appendChild(o);
+        });
+        sel.addEventListener('change', ()=> updateStatus(j.id, sel.value));
+        tdS.appendChild(sel); tr.appendChild(tdS);
 
+        // COMPANY
         const tdC = document.createElement('td'); tdC.textContent=j.company; tdC.style.fontWeight='600'; tr.appendChild(tdC);
+
+        // ROLE
         const tdR = document.createElement('td'); tdR.textContent=j.role; tr.appendChild(tdR);
+
+        // DATE
         const tdD = document.createElement('td'); tdD.textContent = j.date ? new Date(j.date).toLocaleDateString() : '—'; tr.appendChild(tdD);
 
+        // LINK
         const tdL = document.createElement('td');
         if(j.link){ const a=document.createElement('a'); a.href=j.link; a.target='_blank'; a.rel='noreferrer'; a.textContent='Open'; a.className='link'; tdL.appendChild(a); }
         else tdL.textContent='—'; tr.appendChild(tdL);
 
+        // NOTES
         const tdN = document.createElement('td'); tdN.textContent=j.notes||'—'; tr.appendChild(tdN);
 
+        // ACTIONS
         const tdAct = document.createElement('td');
         const del = document.createElement('button'); del.textContent='Delete'; del.className='ghost';
         del.addEventListener('click', ()=> removeJob(j.id)); tdAct.appendChild(del); tr.appendChild(tdAct);
@@ -288,19 +299,20 @@
         id, company, role,
         link: fLink.value.trim() || '',
         notes: fNotes.value.trim() || '',
-        applied: !!fApplied.checked,
+        status: fStatus.value || 'Wishlist',
         date: new Date().toISOString()
       };
       try{
         await set(ref(db, `users/${uid}/jobs/${id}`), job);
-        fCompany.value=''; fRole.value=''; fLink.value=''; fNotes.value=''; fApplied.checked=false;
+        fCompany.value=''; fRole.value=''; fLink.value=''; fNotes.value=''; fStatus.value='Wishlist';
       }catch(e){ setAuthMsg('Write failed: ' + (e?.message || e)); }
     });
 
-    async function toggleApplied(id, applied){
+    async function updateStatus(id, status){
       if(!uid) return;
-      try{ await update(ref(db, `users/${uid}/jobs/${id}`), { applied }); }
-      catch(e){ setAuthMsg('Update failed: ' + (e?.message || e)); }
+      try{
+        await update(ref(db, `users/${uid}/jobs/${id}`), { status });
+      }catch(e){ setAuthMsg('Update failed: ' + (e?.message || e)); }
     }
 
     async function removeJob(id){
@@ -318,13 +330,26 @@
       catch(e){ setAuthMsg('Clear failed: ' + (e?.message || e)); }
     });
 
-    document.getElementById('toggleUnappliedBtn').addEventListener('click', ()=>{
-      showOnlyUnapplied = !showOnlyUnapplied;
-      toggleUnappliedBtn.textContent = showOnlyUnapplied ? 'Show All' : 'Only Not Applied';
-      render();
-    });
-
     search.addEventListener('input', render);
+    statusFilter.addEventListener('change', render);
+
+    // CSV export includes Status
+    document.getElementById('exportBtn').addEventListener('click', ()=>{
+      const header = ['ID','Company','Role','Link','Status','Date','Notes'];
+      const escapeCsv = v => {
+        v = v ?? '';
+        return /[",\n]/.test(v) ? '"' + String(v).replaceAll('"','""') + '"' : String(v);
+        };
+      const lines = jobs.map(j => [
+        j.id, j.company, j.role, j.link||'', j.status || 'Wishlist',
+        j.date ? new Date(j.date).toLocaleDateString() : '', j.notes || ''
+      ].map(escapeCsv).join(','));
+      const csv = [header.join(','), ...lines].join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    });
   </script>
 </body>
 </html>
