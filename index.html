@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Job Application Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#f6f7f9; --card:#fff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
+    * { box-sizing: border-box; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    body { margin:0; background:var(--bg); color:var(--text); }
+    .wrap { max-width:1100px; margin:0 auto; padding:24px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .between { justify-content:space-between; align-items:center; }
+    .title { font-size:22px; font-weight:700; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.04); }
+    .pad { padding:16px; }
+    .kpi { flex:1 1 220px; }
+    .kpi .label { font-size:12px; color:var(--muted); }
+    .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
+    input,textarea,button { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
+    input,textarea { width:100%; }
+    textarea { min-height:70px; }
+    button { cursor:pointer; }
+    button.primary { background:#111827; color:#fff; border-color:#111827; }
+    button.ghost { background:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:12px; border-top:1px solid var(--border); vertical-align:top; text-align:left; }
+    thead th { background:#f3f4f6; color:#374151; border-top:none; }
+    .small { font-size:12px; color:#6b7280; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px dashed var(--border); border-radius:12px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .flex-1 { flex:1; }
+    a.link { color:#2563eb; text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row between">
+      <div class="title">Job Application Tracker</div>
+      <div class="actions">
+        <span id="userTag" class="small">Connecting…</span>
+        <button id="exportBtn" class="ghost">Export CSV</button>
+        <button id="clearAllBtn" class="ghost">Clear All</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="card kpi"><div class="pad"><div class="label">Total Jobs</div><div id="kpi-total" class="value">0</div></div></div>
+      <div class="card kpi"><div class="pad"><div class="label">Applied</div><div id="kpi-applied" class="value">0</div></div></div>
+      <div class="card kpi"><div class="pad"><div class="label">Not Yet Applied</div><div id="kpi-unapplied" class="value">0</div></div></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="pad">
+        <div class="row">
+          <div class="flex-1"><input id="f-company" placeholder="Company" /></div>
+          <div class="flex-1"><input id="f-role" placeholder="Role / Title" /></div>
+          <div class="flex-1"><input id="f-link" placeholder="Link (optional)" /></div>
+          <label class="pill"><input id="f-applied" type="checkbox" /> Applied</label>
+          <button id="addBtn" class="primary">Add</button>
+        </div>
+        <div style="margin-top:10px"><textarea id="f-notes" placeholder="Notes (optional)"></textarea></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="flex-1"><input id="search" placeholder="Search company, role, notes…" /></div>
+      <button id="toggleUnappliedBtn" class="ghost">Only Not Applied</button>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="pad" style="padding:0">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Applied</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="7" class="small" style="text-align:center; padding:24px">No jobs found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="small" style="text-align:center; margin:24px 0 8px">Data is stored securely in your Firebase project (per-user).</div>
+  </div>
+
+  <!-- Firebase SDK (v10 modular) -->
+  <script type="module">
+    // ==== YOUR VERIFIED PROJECT (jobt-d9f5b) ====
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
+      authDomain: "jobt-d9f5b.firebaseapp.com",
+      databaseURL: "https://jobt-d9f5b-default-rtdb.firebaseio.com",
+      projectId: "jobt-d9f5b",
+      storageBucket: "jobt-d9f5b.appspot.com",
+      messagingSenderId: "661162100470",
+      appId: "1:661162100470:web:d7d3880b0acd6ae58d8ed7",
+      measurementId: "G-B8N2Q5D0NN"
+    };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // UI refs
+    const kTotal = document.getElementById('kpi-total');
+    const kApplied = document.getElementById('kpi-applied');
+    const kUnapplied = document.getElementById('kpi-unapplied');
+    const tbody = document.getElementById('tbody');
+    const search = document.getElementById('search');
+    const toggleUnappliedBtn = document.getElementById('toggleUnappliedBtn');
+    const userTag = document.getElementById('userTag');
+
+    const fCompany = document.getElementById('f-company');
+    const fRole = document.getElementById('f-role');
+    const fLink = document.getElementById('f-link');
+    const fApplied = document.getElementById('f-applied');
+    const fNotes = document.getElementById('f-notes');
+
+    let jobs = [];
+    let showOnlyUnapplied = false;
+    let uid = null;
+
+    // ---- Auth + bind listener ----
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        if (!user) {
+          await signInAnonymously(auth);
+          return;
+        }
+        uid = user.uid;
+        userTag.textContent = `Signed in • ${uid.slice(0,6)}…`;
+
+        const jobsRef = ref(db, `users/${uid}/jobs`);
+        onValue(jobsRef, (snap) => {
+          jobs = Object.values(snap.val() || {}).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+          render();
+        }, (err) => {
+          console.error('DB listener error:', err);
+          userTag.textContent = 'DB error — check rules/connection';
+        });
+      } catch (e) {
+        console.error('Auth error:', e);
+        userTag.textContent = 'Auth failed — enable Anonymous & add domain';
+        alert('Firebase auth failed. Ensure Anonymous sign-in is enabled and your domain is authorized.');
+      }
+    });
+
+    // ---- Helpers ----
+    function genId(){ return Math.random().toString(36).slice(2,10); }
+    function truthy(v){ return v===true || String(v).toLowerCase()==='true' || String(v).toLowerCase().startsWith('y'); }
+
+    function filteredJobs(){
+      const q = (search?.value || '').toLowerCase();
+      return jobs.filter(j => {
+        const match = (j.company + ' ' + j.role + ' ' + (j.notes||'')).toLowerCase().includes(q);
+        const pass = showOnlyUnapplied ? !truthy(j.applied) : true;
+        return match && pass;
+      });
+    }
+
+    function render(){
+      const total = jobs.length;
+      const appliedCount = jobs.filter(j => truthy(j.applied)).length;
+      kTotal.textContent = total;
+      kApplied.textContent = appliedCount;
+      kUnapplied.textContent = total - appliedCount;
+
+      const rows = filteredJobs();
+      tbody.innerHTML = '';
+      if(rows.length === 0){
+        const tr = document.createElement('tr'); const td = document.createElement('td');
+        td.colSpan = 7; td.className = 'small'; td.style.textAlign='center'; td.style.padding='24px'; td.textContent = 'No jobs found.';
+        tr.appendChild(td); tbody.appendChild(tr); return;
+      }
+
+      for(const j of rows){
+        const tr = document.createElement('tr');
+
+        const tdA = document.createElement('td');
+        const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = truthy(j.applied);
+        cb.addEventListener('change', ()=> toggleApplied(j.id, cb.checked)); tdA.appendChild(cb); tr.appendChild(tdA);
+
+        const tdC = document.createElement('td'); tdC.textContent=j.company; tdC.style.fontWeight='600'; tr.appendChild(tdC);
+        const tdR = document.createElement('td'); tdR.textContent=j.role; tr.appendChild(tdR);
+        const tdD = document.createElement('td'); tdD.textContent = j.date ? new Date(j.date).toLocaleDateString() : '—'; tr.appendChild(tdD);
+
+        const tdL = document.createElement('td');
+        if(j.link){ const a=document.createElement('a'); a.href=j.link; a.target='_blank'; a.rel='noreferrer'; a.textContent='Open'; a.className='link'; tdL.appendChild(a); }
+        else tdL.textContent='—'; tr.appendChild(tdL);
+
+        const tdN = document.createElement('td'); tdN.textContent=j.notes||'—'; tr.appendChild(tdN);
+
+        const tdAct = document.createElement('td');
+        const del = document.createElement('button'); del.textContent='Delete'; del.className='ghost';
+        del.addEventListener('click', ()=> removeJob(j.id)); tdAct.appendChild(del); tr.appendChild(tdAct);
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    // ---- CRUD ----
+    document.getElementById('addBtn').addEventListener('click', async ()=>{
+      if(!uid){ alert('Still connecting…'); return; }
+      const company = fCompany.value.trim();
+      const role = fRole.value.trim();
+      if(!company || !role) return;
+
+      const id = genId();
+      const job = {
+        id, company, role,
+        link: fLink.value.trim() || '',
+        notes: fNotes.value.trim() || '',
+        applied: !!fApplied.checked,
+        date: new Date().toISOString()
+      };
+      try{
+        await set(ref(db, `users/${uid}/jobs/${id}`), job);
+        fCompany.value=''; fRole.value=''; fLink.value=''; fNotes.value=''; fApplied.checked=false;
+      }catch(e){ console.error('Add failed:', e); alert('Write failed. Check DB rules are published.'); }
+    });
+
+    async function toggleApplied(id, applied){
+      if(!uid) return;
+      try{ await update(ref(db, `users/${uid}/jobs/${id}`), { applied }); }
+      catch(e){ console.error('Update failed:', e); alert('Update failed. Check DB rules.'); }
+    }
+
+    async function removeJob(id){
+      if(!uid) return;
+      if(!confirm('Delete this job?')) return;
+      try{ await remove(ref(db, `users/${uid}/jobs/${id}`)); }
+      catch(e){ console.error('Delete failed:', e); alert('Delete failed.'); }
+    }
+
+    // UI controls
+    document.getElementById('clearAllBtn').addEventListener('click', async ()=>{
+      if(!uid || !jobs.length) return;
+      if(!confirm(`Delete ALL ${jobs.length} jobs? This cannot be undone.`)) return;
+      await set(ref(db, `users/${uid}/jobs`), null);
+    });
+
+    document.getElementById('toggleUnappliedBtn').addEventListener('click', ()=>{
+      showOnlyUnapplied = !showOnlyUnapplied;
+      toggleUnappliedBtn.textContent = showOnlyUnapplied ? 'Show All' : 'Only Not Applied';
+      render();
+    });
+
+    search.addEventListener('input', render);
+
+    document.getElementById('exportBtn').addEventListener('click', ()=>{
+      const header = ['ID','Company','Role','Link','Applied','Date','Notes'];
+      const escapeCsv = v => {
+        v = v ?? '';
+        return /[",\n]/.test(v) ? '"' + String(v).replaceAll('"','""') + '"' : String(v);
+      };
+      const lines = jobs.map(j => [
+        j.id, j.company, j.role, j.link||'',
+        truthy(j.applied) ? 'Yes' : 'No',
+        j.date ? new Date(j.date).toLocaleDateString() : '',
+        j.notes || ''
+      ].map(escapeCsv).join(','));
+      const csv = [header.join(','), ...lines].join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
