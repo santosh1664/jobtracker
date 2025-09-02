@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Job Application Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:#f6f7f9;
+      --bg-dark:#1f2937;
+      --text:#1f2937;
+      --text-dark:#f9fafb;
+      /* Optional background image: set to url("yourimage.jpg") later */
+      --bg-image:none;
+      --border:#e5e7eb;
+    }
+    body {
+      margin:0;
+      background:var(--bg) var(--bg-image) no-repeat center center fixed;
+      background-size:cover;
+      color:var(--text);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark {
+      background:var(--bg-dark) var(--bg-image) no-repeat center center fixed;
+      background-size:cover;
+      color:var(--text-dark);
+    }
+
+    .wrap { max-width:1100px; margin:0 auto; padding:24px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .between { justify-content:space-between; align-items:center; }
+    .title { font-size:22px; font-weight:700; }
+
+    .card { background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.05); }
+    body.dark .card { background:#374151; border-color:#4b5563; }
+    .pad { padding:16px; }
+
+    .kpi { flex:1 1 180px; }
+    .kpi .label { font-size:12px; opacity:.8; }
+    .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
+    .kpi.applied  { border-left:6px solid #facc15; }  /* yellow */
+    .kpi.interview{ border-left:6px solid #3b82f6; }  /* blue   */
+    .kpi.offer    { border-left:6px solid #22c55e; }  /* green  */
+    .kpi.rejected { border-left:6px solid #ef4444; }  /* red    */
+
+    input,textarea,button,select {
+      border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px;
+    }
+    body.dark input, body.dark textarea, body.dark select, body.dark button {
+      background:#374151; color:#f9fafb; border-color:#4b5563;
+    }
+    input,textarea,select { width:100%; }
+    textarea { min-height:70px; }
+    button { cursor:pointer; }
+    button.primary { background:#111827; color:#fff; border-color:#111827; }
+    button.ghost { background:#fff; }
+
+    /* Theme switch button */
+    .switch { position:fixed; top:16px; right:16px; border-radius:10px; }
+    .small { font-size:12px; opacity:.85; }
+
+    /* Table & mobile card view */
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; }
+    thead th { background:#f3f4f6; }
+    body.dark thead th { background:#4b5563; color:#f9fafb; }
+
+    select.status { border-radius:999px; padding:4px 10px; font-size:12px; }
+    .wishlist { background:#f3f4f6; color:#374151; }
+    .applied { background:#fef9c3; color:#92400e; }
+    .interview { background:#dbeafe; color:#1e40af; }
+    .offer { background:#dcfce7; color:#166534; }
+    .rejected { background:#fee2e2; color:#991b1b; }
+
+    @media (max-width: 640px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { margin-bottom: 12px; border:1px solid var(--border); border-radius:12px; padding:8px; background:transparent; }
+      td { border: none; padding: 6px 8px; background:inherit; }
+      td::before { content: attr(data-label); font-weight:600; display:block; margin-bottom:2px; }
+      button, select, input, textarea { font-size:16px; padding:12px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Dark/Light toggle -->
+  <button class="switch" id="modeBtn">🌙 Dark</button>
+
+  <div class="wrap">
+    <div class="row between">
+      <div class="title">Job Application Tracker</div>
+      <div class="row">
+        <button id="exportBtn" class="ghost">Export CSV</button>
+        <button id="clearAllBtn" class="ghost">Clear All</button>
+        <button id="signOutBtn" class="ghost">Sign out</button>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row" style="margin-top:16px">
+      <div class="card kpi"><div class="pad"><div class="label">Total Jobs</div><div id="kpi-total" class="value">0</div></div></div>
+      <div class="card kpi applied"><div class="pad"><div class="label">Applied</div><div id="kpi-applied" class="value">0</div></div></div>
+      <div class="card kpi interview"><div class="pad"><div class="label">Interview</div><div id="kpi-interview" class="value">0</div></div></div>
+      <div class="card kpi offer"><div class="pad"><div class="label">Offer</div><div id="kpi-offer" class="value">0</div></div></div>
+      <div class="card kpi rejected"><div class="pad"><div class="label">Rejected</div><div id="kpi-rejected" class="value">0</div></div></div>
+    </div>
+
+    <!-- Add Job -->
+    <div class="card" style="margin-top:16px">
+      <div class="pad">
+        <div class="row">
+          <div class="flex-1"><input id="f-company" placeholder="Company" /></div>
+          <div class="flex-1"><input id="f-role" placeholder="Role / Title" /></div>
+          <div class="flex-1"><input id="f-link" placeholder="Link (optional)" /></div>
+          <div style="width:220px">
+            <select id="f-status" aria-label="Status">
+              <option>Wishlist</option>
+              <option>Applied</option>
+              <option>Interview</option>
+              <option>Offer</option>
+              <option>Rejected</option>
+            </select>
+          </div>
+          <button id="addBtn" class="primary">Add</button>
+        </div>
+        <div style="margin-top:10px"><textarea id="f-notes" placeholder="Notes (optional)"></textarea></div>
+      </div>
+    </div>
+
+    <!-- Search + Filter -->
+    <div class="row" style="margin-top:12px">
+      <div class="flex-1"><input id="search" placeholder="Search company, role, notes…" /></div>
+      <div style="width:220px">
+        <select id="statusFilter" aria-label="Filter by status">
+          <option value="All">All statuses</option>
+          <option>Wishlist</option>
+          <option>Applied</option>
+          <option>Interview</option>
+          <option>Offer</option>
+          <option>Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Jobs Table -->
+    <div class="card" style="margin-top:12px">
+      <div class="pad" style="padding:0">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th><th>Company</th><th>Role</th><th>Date</th><th>Link</th><th>Notes</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="7" class="small" style="text-align:center; padding:24px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="small" style="text-align:center; margin:24px 0 8px">Data is stored in your Firebase project (per-user).</div>
+  </div>
+
+  <!-- Firebase + App -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    /* ==== YOUR FIREBASE PROJECT ==== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
+      authDomain: "jobt-d9f5b.firebaseapp.com",
+      databaseURL: "https://jobt-d9f5b-default-rtdb.firebaseio.com",
+      projectId: "jobt-d9f5b",
+      storageBucket: "jobt-d9f5b.appspot.com",
+      messagingSenderId: "661162100470",
+      appId: "1:661162100470:web:d7d3880b0acd6ae58d8ed7",
+      measurementId: "G-B8N2Q5D0NN"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // Theme toggle + persist in localStorage
+    const modeBtn = document.getElementById('modeBtn');
+    const savedMode = localStorage.getItem('mode');
+    if (savedMode === 'dark') { document.body.classList.add('dark'); modeBtn.textContent = '☀️ Light'; }
+    modeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      const dark = document.body.classList.contains('dark');
+      modeBtn.textContent = dark ? '☀️ Light' : '🌙 Dark';
+      localStorage.setItem('mode', dark ? 'dark' : 'light');
+    });
+
+    // UI refs
+    const signOutBtn = document.getElementById('signOutBtn');
+    const exportBtn  = document.getElementById('exportBtn');
+    const clearBtn   = document.getElementById('clearAllBtn');
+    const tbody = document.getElementById('tbody');
+    const search = document.getElementById('search');
+    const statusFilter = document.getElementById('statusFilter');
+    const fCompany = document.getElementById('f-company');
+    const fRole = document.getElementById('f-role');
+    const fLink = document.getElementById('f-link');
+    const fStatus = document.getElementById('f-status');
+    const fNotes = document.getElementById('f-notes');
+    const addBtn = document.getElementById('addBtn');
+
+    const kTotal=document.getElementById('kpi-total');
+    const kApplied=document.getElementById('kpi-applied');
+    const kInterview=document.getElementById('kpi-interview');
+    const kOffer=document.getElementById('kpi-offer');
+    const kRejected=document.getElementById('kpi-rejected');
+
+    let uid=null, jobs=[], unsubscribe=null;
+
+    function genId(){ return Math.random().toString(36).slice(2,10); }
+    function statusClass(s){ return {Wishlist:'wishlist',Applied:'applied',Interview:'interview',Offer:'offer',Rejected:'rejected'}[s]||'wishlist'; }
+    function filteredJobs(){
+      const q=(search.value||'').toLowerCase(), sf=statusFilter.value||'All';
+      return jobs.filter(j=>{
+        const match=(j.company+' '+j.role+' '+(j.notes||'')).toLowerCase().includes(q);
+        return match && (sf==='All' || j.status===sf);
+      });
+    }
+
+    function render(){
+      // KPIs
+      const total=jobs.length;
+      const applied=jobs.filter(j=>j.status==='Applied').length;
+      const interview=jobs.filter(j=>j.status==='Interview').length;
+      const offer=jobs.filter(j=>j.status==='Offer').length;
+      const rejected=jobs.filter(j=>j.status==='Rejected').length;
+      kTotal.textContent=total; kApplied.textContent=applied; kInterview.textContent=interview; kOffer.textContent=offer; kRejected.textContent=rejected;
+
+      // Table
+      const rows=filteredJobs();
+      tbody.innerHTML='';
+      if(rows.length===0){
+        const tr=document.createElement('tr'),td=document.createElement('td');
+        td.colSpan=7; td.className='small'; td.style.textAlign='center'; td.style.padding='24px';
+        td.textContent = uid ? 'No jobs yet. Add your first one above.' : 'Redirecting to login…';
+        tr.appendChild(td); tbody.appendChild(tr); return;
+      }
+      for(const j of rows){
+        const tr=document.createElement('tr');
+
+        const tdS=document.createElement('td'); tdS.setAttribute('data-label','Status');
+        const sel=document.createElement('select'); sel.className=`status ${statusClass(j.status)}`;
+        ['Wishlist','Applied','Interview','Offer','Rejected'].forEach(s=>{ const o=document.createElement('option'); o.textContent=s; o.value=s; if(j.status===s)o.selected=true; sel.appendChild(o); });
+        sel.addEventListener('change',()=> update(ref(db,`users/${uid}/jobs/${j.id}`), { status: sel.value }));
+        tdS.appendChild(sel); tr.appendChild(tdS);
+
+        const tdC=document.createElement('td'); tdC.setAttribute('data-label','Company'); tdC.textContent=j.company; tdC.style.fontWeight='600'; tr.appendChild(tdC);
+        const tdR=document.createElement('td'); tdR.setAttribute('data-label','Role'); tdR.textContent=j.role; tr.appendChild(tdR);
+        const tdD=document.createElement('td'); tdD.setAttribute('data-label','Date'); tdD.textContent=j.date?new Date(j.date).toLocaleDateString():'—'; tr.appendChild(tdD);
+        const tdL=document.createElement('td'); tdL.setAttribute('data-label','Link');
+        if(j.link){ const a=document.createElement('a'); a.href=j.link; a.target='_blank'; a.rel='noreferrer'; a.textContent='Open'; tdL.appendChild(a); } else tdL.textContent='—';
+        tr.appendChild(tdL);
+        const tdN=document.createElement('td'); tdN.setAttribute('data-label','Notes'); tdN.textContent=j.notes||'—'; tr.appendChild(tdN);
+
+        const tdAct=document.createElement('td'); tdAct.setAttribute('data-label','Actions');
+        const del=document.createElement('button'); del.textContent='Delete'; del.className='ghost';
+        del.addEventListener('click', async()=>{ if(confirm('Delete this job?')) await remove(ref(db,`users/${uid}/jobs/${j.id}`)); });
+        tdAct.appendChild(del); tr.appendChild(tdAct);
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Add job
+    addBtn.addEventListener('click', async ()=>{
+      if(!uid) return;
+      const company=fCompany.value.trim(), role=fRole.value.trim();
+      if(!company || !role) return;
+      const id=genId();
+      const job={ id, company, role, link:fLink.value.trim()||'', notes:fNotes.value.trim()||'', status:fStatus.value||'Wishlist', date:new Date().toISOString() };
+      await set(ref(db,`users/${uid}/jobs/${id}`), job);
+      fCompany.value=''; fRole.value=''; fLink.value=''; fNotes.value=''; fStatus.value='Wishlist';
+    });
+
+    // Export CSV
+    exportBtn.addEventListener('click', ()=>{
+      const header=['ID','Company','Role','Link','Status','Date','Notes'];
+      const esc=v=>{ v=v??''; return /[",\n]/.test(v)?'"'+String(v).replaceAll('"','""')+'"':String(v); };
+      const lines=jobs.map(j=>[j.id,j.company,j.role,j.link||'',j.status||'Wishlist',j.date?new Date(j.date).toLocaleDateString():'',j.notes||''].map(esc).join(','));
+      const csv=[header.join(','),...lines].join('\n');
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a');
+      a.href=url; a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // Clear all
+    clearBtn.addEventListener('click', async ()=>{
+      if(!uid || !jobs.length) return;
+      if(!confirm(`Delete ALL ${jobs.length} jobs?`)) return;
+      await set(ref(db,`users/${uid}/jobs`), null);
+    });
+
+    // Sign out
+    signOutBtn.addEventListener('click', async ()=>{
+      await signOut(auth);
+      window.location.href='login.html';
+    });
+
+    // Redirect to login if not signed in; otherwise load data
+    onAuthStateChanged(auth, (user)=>{
+      if(unsubscribe){ unsubscribe(); unsubscribe=null; }
+      if(!user){
+        uid=null; jobs=[];
+        render();
+        // Short delay so user sees message if arriving here
+        setTimeout(()=> window.location.href='login.html', 150);
+        return;
+      }
+      uid=user.uid;
+      const jobsRef=ref(db,`users/${uid}/jobs`);
+      unsubscribe = onValue(jobsRef, snap=>{
+        jobs = Object.values(snap.val()||{}).map(j=>({status:'Wishlist', ...j}))
+                 .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+        render();
+      });
+    });
+
+    // Live UI filters
+    search.addEventListener('input', render);
+    statusFilter.addEventListener('change', render);
+  </script>
+</body>
+</html>
