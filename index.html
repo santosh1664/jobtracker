@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Job Application Tracker</title>
+  <title>Santosh Job Application Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root { --bg:#f6f7f9; --card:#fff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
@@ -14,12 +14,15 @@
     .title { font-size:22px; font-weight:700; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.04); }
     .pad { padding:16px; }
-    .kpi { flex:1 1 220px; }
+    .kpi { flex:1 1 180px; }
     .kpi .label { font-size:12px; color:var(--muted); }
     .kpi .value { font-size:28px; font-weight:700; margin-top:4px; }
+    .kpi.applied { border-left:6px solid #facc15; }     /* yellow */
+    .kpi.interview { border-left:6px solid #3b82f6; }   /* blue */
+    .kpi.offer { border-left:6px solid #22c55e; }       /* green */
+    .kpi.rejected { border-left:6px solid #ef4444; }    /* red */
     input,textarea,button,select { border:1px solid var(--border); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
     input,textarea,select { width:100%; }
-    input.small { width:200px; }
     textarea { min-height:70px; }
     button { cursor:pointer; }
     button.primary { background:#111827; color:#fff; border-color:#111827; }
@@ -35,29 +38,18 @@
     .error { color:#b91c1c; font-size:12px; }
     .ok { color:#047857; font-size:12px; }
     select.status { border-radius:999px; padding:4px 10px; font-size:12px; }
-    /* Status colors */
     .wishlist { background:#f3f4f6; color:#374151; }
     .applied { background:#fef9c3; color:#92400e; }
     .interview { background:#dbeafe; color:#1e40af; }
     .offer { background:#dcfce7; color:#166534; }
     .rejected { background:#fee2e2; color:#991b1b; }
-
-    /* Mobile view: convert table to cards */
     @media (max-width: 640px) {
       table, thead, tbody, th, td, tr { display: block; }
       thead { display: none; }
       tr { margin-bottom: 12px; border:1px solid var(--border); border-radius:12px; padding:8px; background:#fff; }
       td { border: none; padding: 6px 8px; }
-      td::before {
-        content: attr(data-label);
-        font-weight:600;
-        display:block;
-        margin-bottom:2px;
-      }
-      button, select, input, textarea {
-        font-size:16px;
-        padding:12px;
-      }
+      td::before { content: attr(data-label); font-weight:600; display:block; margin-bottom:2px; }
+      button, select, input, textarea { font-size:16px; padding:12px; }
     }
   </style>
 </head>
@@ -67,8 +59,8 @@
       <div class="title">Job Application Tracker</div>
       <div class="actions">
         <div class="auth" id="authBox">
-          <input id="email" class="small" type="email" placeholder="Email" autocomplete="username" />
-          <input id="password" class="small" type="password" placeholder="Password" autocomplete="current-password" />
+          <input id="email" class="small" type="email" placeholder="Email" />
+          <input id="password" class="small" type="password" placeholder="Password" />
           <button id="loginBtn" class="ghost">Sign in</button>
           <button id="signOutBtn" class="ghost" style="display:none">Sign out</button>
           <span id="authMsg" class="small"></span>
@@ -79,12 +71,16 @@
       </div>
     </div>
 
+    <!-- KPI Cards -->
     <div class="row" style="margin-top:16px">
       <div class="card kpi"><div class="pad"><div class="label">Total Jobs</div><div id="kpi-total" class="value">0</div></div></div>
-      <div class="card kpi"><div class="pad"><div class="label">Applied</div><div id="kpi-applied" class="value">0</div></div></div>
-      <div class="card kpi"><div class="pad"><div class="label">Not Yet Applied</div><div id="kpi-unapplied" class="value">0</div></div></div>
+      <div class="card kpi applied"><div class="pad"><div class="label">Applied</div><div id="kpi-applied" class="value">0</div></div></div>
+      <div class="card kpi interview"><div class="pad"><div class="label">Interview</div><div id="kpi-interview" class="value">0</div></div></div>
+      <div class="card kpi offer"><div class="pad"><div class="label">Offer</div><div id="kpi-offer" class="value">0</div></div></div>
+      <div class="card kpi rejected"><div class="pad"><div class="label">Rejected</div><div id="kpi-rejected" class="value">0</div></div></div>
     </div>
 
+    <!-- Add Job -->
     <div class="card" style="margin-top:16px">
       <div class="pad">
         <div class="row">
@@ -92,7 +88,7 @@
           <div class="flex-1"><input id="f-role" placeholder="Role / Title" /></div>
           <div class="flex-1"><input id="f-link" placeholder="Link (optional)" /></div>
           <div style="width:220px">
-            <select id="f-status" aria-label="Status">
+            <select id="f-status">
               <option>Wishlist</option>
               <option>Applied</option>
               <option>Interview</option>
@@ -106,10 +102,11 @@
       </div>
     </div>
 
+    <!-- Search + Filter -->
     <div class="row" style="margin-top:12px">
       <div class="flex-1"><input id="search" placeholder="Search company, role, notes…" /></div>
       <div style="width:220px">
-        <select id="statusFilter" aria-label="Filter by status">
+        <select id="statusFilter">
           <option value="All">All statuses</option>
           <option>Wishlist</option>
           <option>Applied</option>
@@ -120,6 +117,7 @@
       </div>
     </div>
 
+    <!-- Jobs Table -->
     <div class="card" style="margin-top:12px">
       <div class="pad" style="padding:0">
         <div style="overflow-x:auto">
@@ -136,12 +134,14 @@
         </div>
       </div>
     </div>
-
-    <div class="small" style="text-align:center; margin:24px 0 8px">Data is stored securely in your Firebase project (per-user account).</div>
   </div>
 
   <!-- Firebase SDK -->
   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
     const firebaseConfig = {
       apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
       authDomain: "jobt-d9f5b.firebaseapp.com",
@@ -153,24 +153,24 @@
       measurementId: "G-B8N2Q5D0NN"
     };
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
-      signInWithEmailAndPassword, signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
     await setPersistence(auth, browserLocalPersistence);
 
-    const kTotal=document.getElementById('kpi-total'),kApplied=document.getElementById('kpi-applied'),kUnapplied=document.getElementById('kpi-unapplied');
-    const tbody=document.getElementById('tbody'),search=document.getElementById('search'),statusFilter=document.getElementById('statusFilter'),userTag=document.getElementById('userTag');
-    const emailEl=document.getElementById('email'),passEl=document.getElementById('password'),loginBtn=document.getElementById('loginBtn'),signOutBtn=document.getElementById('signOutBtn'),authMsg=document.getElementById('authMsg');
+    const kTotal=document.getElementById('kpi-total');
+    const kApplied=document.getElementById('kpi-applied');
+    const kInterview=document.getElementById('kpi-interview');
+    const kOffer=document.getElementById('kpi-offer');
+    const kRejected=document.getElementById('kpi-rejected');
+    const tbody=document.getElementById('tbody');
+    const search=document.getElementById('search');
+    const statusFilter=document.getElementById('statusFilter');
+    const emailEl=document.getElementById('email'),passEl=document.getElementById('password');
+    const loginBtn=document.getElementById('loginBtn'),signOutBtn=document.getElementById('signOutBtn'),authMsg=document.getElementById('authMsg');
     const fCompany=document.getElementById('f-company'),fRole=document.getElementById('f-role'),fLink=document.getElementById('f-link'),fStatus=document.getElementById('f-status'),fNotes=document.getElementById('f-notes');
-
     let jobs=[],uid=null,unsubscribe=null;
+
     function setAuthMsg(t,ok=false){authMsg.textContent=t||'';authMsg.className=ok?'small ok':'small error';}
 
     loginBtn.addEventListener('click',async()=>{setAuthMsg('');const e=emailEl.value.trim(),p=passEl.value;if(!e||!p)return setAuthMsg('Enter email and password');try{await signInWithEmailAndPassword(auth,e,p);setAuthMsg('Signed in',true);}catch(err){setAuthMsg(err.message||'Login failed');}});
@@ -178,9 +178,10 @@
 
     onAuthStateChanged(auth,u=>{
       if(unsubscribe){unsubscribe();unsubscribe=null;}
-      if(!u){uid=null;userTag.textContent='Not signed in';signOutBtn.style.display='none';jobs=[];render();return;}
-      uid=u.uid;userTag.textContent=u.email?`Signed in • ${u.email}`:`Signed in • ${uid.slice(0,6)}…`;signOutBtn.style.display='inline-block';
-      const jobsRef=ref(db,`users/${uid}/jobs`);unsubscribe=onValue(jobsRef,snap=>{jobs=Object.values(snap.val()||{}).map(j=>({status:'Wishlist',...j})).sort((a,b)=>(b.date||"").localeCompare(a.date||""));render();});
+      if(!u){uid=null;jobs=[];render();return;}
+      uid=u.uid;
+      const jobsRef=ref(db,`users/${uid}/jobs`);
+      unsubscribe=onValue(jobsRef,snap=>{jobs=Object.values(snap.val()||{}).map(j=>({status:'Wishlist',...j})).sort((a,b)=>(b.date||"").localeCompare(a.date||""));render();});
     });
 
     function genId(){return Math.random().toString(36).slice(2,10);}
@@ -188,32 +189,33 @@
     function statusClass(s){return {Wishlist:'wishlist',Applied:'applied',Interview:'interview',Offer:'offer',Rejected:'rejected'}[s]||'wishlist';}
 
     function render(){
-      const t=jobs.length,a=jobs.filter(j=>j.status==='Applied').length;kTotal.textContent=t;kApplied.textContent=a;kUnapplied.textContent=t-a;
+      const total=jobs.length;
+      const appliedCount=jobs.filter(j=>j.status==='Applied').length;
+      const interviewCount=jobs.filter(j=>j.status==='Interview').length;
+      const offerCount=jobs.filter(j=>j.status==='Offer').length;
+      const rejectedCount=jobs.filter(j=>j.status==='Rejected').length;
+      kTotal.textContent=total;kApplied.textContent=appliedCount;kInterview.textContent=interviewCount;kOffer.textContent=offerCount;kRejected.textContent=rejectedCount;
+
       const rows=filteredJobs();tbody.innerHTML='';
       if(rows.length===0){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='small';td.style.textAlign='center';td.style.padding='24px';td.textContent=uid?'No jobs found.':'Sign in to see your jobs.';tr.appendChild(td);tbody.appendChild(tr);return;}
       for(const j of rows){
         const tr=document.createElement('tr');
-
-        const tdS=document.createElement('td');tdS.setAttribute('data-label','Status');const sel=document.createElement('select');sel.className=`status ${statusClass(j.status)}`;['Wishlist','Applied','Interview','Offer','Rejected'].forEach(s=>{const o=document.createElement('option');o.textContent=s;o.value=s;if(j.status===s)o.selected=true;sel.appendChild(o);});sel.addEventListener('change',()=>updateStatus(j.id,sel.value));tdS.appendChild(sel);tr.appendChild(tdS);
-
+        const tdS=document.createElement('td');tdS.setAttribute('data-label','Status');const sel=document.createElement('select');sel.className=`status ${statusClass(j.status)}`;['Applied','Wishlist','Interview','Offer','Rejected'].forEach(s=>{const o=document.createElement('option');o.textContent=s;o.value=s;if(j.status===s)o.selected=true;sel.appendChild(o);});sel.addEventListener('change',()=>updateStatus(j.id,sel.value));tdS.appendChild(sel);tr.appendChild(tdS);
         const tdC=document.createElement('td');tdC.setAttribute('data-label','Company');tdC.textContent=j.company;tdC.style.fontWeight='600';tr.appendChild(tdC);
         const tdR=document.createElement('td');tdR.setAttribute('data-label','Role');tdR.textContent=j.role;tr.appendChild(tdR);
         const tdD=document.createElement('td');tdD.setAttribute('data-label','Date');tdD.textContent=j.date?new Date(j.date).toLocaleDateString():'—';tr.appendChild(tdD);
         const tdL=document.createElement('td');tdL.setAttribute('data-label','Link');if(j.link){const a=document.createElement('a');a.href=j.link;a.target='_blank';a.rel='noreferrer';a.textContent='Open';a.className='link';tdL.appendChild(a);}else tdL.textContent='—';tr.appendChild(tdL);
         const tdN=document.createElement('td');tdN.setAttribute('data-label','Notes');tdN.textContent=j.notes||'—';tr.appendChild(tdN);
         const tdAct=document.createElement('td');tdAct.setAttribute('data-label','Actions');const del=document.createElement('button');del.textContent='Delete';del.className='ghost';del.addEventListener('click',()=>removeJob(j.id));tdAct.appendChild(del);tr.appendChild(tdAct);
-
         tbody.appendChild(tr);
       }
     }
 
-    document.getElementById('addBtn').addEventListener('click',async()=>{if(!uid){setAuthMsg('Please sign in first');return;}const c=fCompany.value.trim(),r=fRole.value.trim();if(!c||!r)return;const id=genId();const job={id,company:c,role:r,link:fLink.value.trim()||'',notes:fNotes.value.trim()||'',status:fStatus.value||'Wishlist',date:new Date().toISOString()};await set(ref(db,`users/${uid}/jobs/${id}`),job);fCompany.value='';fRole.value='';fLink.value='';fNotes.value='';fStatus.value='Wishlist';});
+    document.getElementById('addBtn').addEventListener('click',async()=>{if(!uid)return;const c=fCompany.value.trim(),r=fRole.value.trim();if(!c||!r)return;const id=genId();const job={id,company:c,role:r,link:fLink.value.trim()||'',notes:fNotes.value.trim()||'',status:fStatus.value||'Wishlist',date:new Date().toISOString()};await set(ref(db,`users/${uid}/jobs/${id}`),job);fCompany.value='';fRole.value='';fLink.value='';fNotes.value='';fStatus.value='Wishlist';});
     async function updateStatus(id,status){if(!uid)return;await update(ref(db,`users/${uid}/jobs/${id}`),{status});}
     async function removeJob(id){if(!uid)return;if(!confirm('Delete this job?'))return;await remove(ref(db,`users/${uid}/jobs/${id}`));}
-
-    document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!uid||!jobs.length)return;if(!confirm(`Delete ALL ${jobs.length} jobs? This cannot be undone.`))return;await set(ref(db,`users/${uid}/jobs`),null);});
+    document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!uid||!jobs.length)return;if(!confirm(`Delete ALL ${jobs.length} jobs?`))return;await set(ref(db,`users/${uid}/jobs`),null);});
     search.addEventListener('input',render);statusFilter.addEventListener('change',render);
-
     document.getElementById('exportBtn').addEventListener('click',()=>{const header=['ID','Company','Role','Link','Status','Date','Notes'];const esc=v=>{v=v??'';return /[",\n]/.test(v)?'"'+String(v).replaceAll('"','""')+'"':String(v);};const lines=jobs.map(j=>[j.id,j.company,j.role,j.link||'',j.status||'Wishlist',j.date?new Date(j.date).toLocaleDateString():'',j.notes||''].map(esc).join(','));const csv=[header.join(','),...lines].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`job-tracker-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);});
   </script>
 </body>
