@@ -10,7 +10,7 @@
     h2 { margin-top:0; }
     input,button { width:100%; padding:12px; margin:8px 0; border:1px solid #ccc; border-radius:8px; font-size:14px; }
     button { background:#111827; color:#fff; cursor:pointer; }
-    .error { color:#b91c1c; font-size:13px; }
+    .error { color:#b91c1c; font-size:13px; min-height:18px; }
   </style>
 </head>
 <body>
@@ -24,7 +24,10 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getAuth, signInWithEmailAndPassword, setPersistence,
+      browserLocalPersistence, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBPzBs2FitAa1lvvpfc9HrU_gCu3SKMcow",
@@ -39,26 +42,29 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+
+    // Persist session across tabs/reloads BEFORE any sign-in
     await setPersistence(auth, browserLocalPersistence);
 
-    const email=document.getElementById("email");
-    const pass=document.getElementById("password");
-    const btn=document.getElementById("loginBtn");
-    const msg=document.getElementById("msg");
+    const email = document.getElementById("email");
+    const pass = document.getElementById("password");
+    const btn  = document.getElementById("loginBtn");
+    const msg  = document.getElementById("msg");
 
     btn.addEventListener("click", async ()=>{
-      msg.textContent="";
+      msg.textContent = "";
       try {
-        await signInWithEmailAndPassword(auth, email.value, pass.value);
-        window.location.href="index.html"; // redirect after login
+        await signInWithEmailAndPassword(auth, email.value.trim(), pass.value);
+        // Redirect after sign-in
+        window.location.href = "home.html";
       } catch(err) {
-        msg.textContent = err.message;
+        msg.textContent = err.message || "Login failed";
       }
     });
 
-    // Skip login if already signed in
+    // If already signed in, skip this page
     onAuthStateChanged(auth, (user)=>{
-      if(user) window.location.href="index.html";
+      if (user) window.location.href = "home.html";
     });
   </script>
 </body>
